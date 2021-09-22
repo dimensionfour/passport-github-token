@@ -1,9 +1,10 @@
 {
-  "name": "passport-github-token",
+  "name": "passport-github-token-nest",
   "version": "3.0.0",
   "description": "Passport strategy for authenticating with GitHub via OAuth2 access tokens",
-  "main": "src/index.js",
+  "main": "lib/index.js",
   "scripts": {
+    "compile": "babel src --out-dir lib",
     "coveralls": "cat coverage/lcov.info | coveralls",
     "test": "isparta cover _mocha"
   },
@@ -31,6 +32,9 @@
     "passport-oauth": "1.0.0"
   },
   "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-plugin-add-module-exports": "0.1.2",
+    "babel-preset-es2015": "6.3.13",
     "chai": "4.2.0",
     "chai-passport-strategy": "1.0.1",
     "coveralls": "3.0.9",

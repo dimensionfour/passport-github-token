@@ -1,4 +1,16 @@
-# passport-github-token
+# passport-github-token-nest
+
+### This is passport-github-token but transpiled with @babel-plugin-transform-classes so now it works with Nest.js as expected
+
+#### Why? Nest.js PassportStrategy expects a function, not a class
+
+#### Usage:
+
+```html
+import { Strategy } from 'passport-github-token-nest';
+
+export class GithubStrategy extends PassportStrategy(Strategy, 'github'){}
+```
 
 ![Build Status](https://img.shields.io/travis/ghaiklor/passport-github-token.svg)
 ![Coverage](https://img.shields.io/coveralls/ghaiklor/passport-github-token.svg)

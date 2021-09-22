@@ -1,4 +1,4 @@
-const { OAuth2Strategy, InternalOAuthError } = require('passport-oauth');
+const { OAuth2Strategy, InternalOAuthError } = require("passport-oauth");
 
 /**
  * `Strategy` constructor.
@@ -26,20 +26,22 @@ const { OAuth2Strategy, InternalOAuthError } = require('passport-oauth');
  *   })
  * })
  */
-module.exports = class GitHubTokenStrategy extends OAuth2Strategy {
+class GitHubTokenStrategy extends OAuth2Strategy {
   constructor(_options, _verify) {
     let options = _options || {};
     let verify = _verify;
 
-    options.authorizationURL = options.authorizationURL || 'https://github.com/login/oauth/authorize';
-    options.tokenURL = options.tokenURL || 'https://github.com/login/oauth/access_token';
+    options.authorizationURL =
+      options.authorizationURL || "https://github.com/login/oauth/authorize";
+    options.tokenURL =
+      options.tokenURL || "https://github.com/login/oauth/access_token";
 
     super(options, verify);
 
-    this.name = 'github-token';
-    this._accessTokenField = options.accessTokenField || 'access_token';
-    this._refreshTokenField = options.refreshTokenField || 'refresh_token';
-    this._profileURL = options.profileURL || 'https://api.github.com/user';
+    this.name = "github-token";
+    this._accessTokenField = options.accessTokenField || "access_token";
+    this._refreshTokenField = options.refreshTokenField || "refresh_token";
+    this._profileURL = options.profileURL || "https://api.github.com/user";
     this._passReqToCallback = options.passReqToCallback;
 
     this._oauth2.useAuthorizationHeaderforGET(true);
@@ -52,27 +54,50 @@ module.exports = class GitHubTokenStrategy extends OAuth2Strategy {
    * @returns {*}
    */
   authenticate(req, options) {
-    let accessToken = (req.body && req.body[this._accessTokenField]) || (req.query && req.query[this._accessTokenField]);
-    let refreshToken = (req.body && req.body[this._refreshTokenField]) || (req.query && req.query[this._refreshTokenField]);
+    options = options || {};
+    var self = this;
+    let code =
+      (req.body && req.body[this._accessTokenField]) ||
+      (req.headers &&
+        (req.headers[this._accessTokenField] ||
+          req.headers[this._accessTokenField.toLowerCase()])) ||
+      (req.query && req.query[this._accessTokenField]);
 
-    if (!accessToken) return this.fail({ message: `You should provide ${this._accessTokenField}` });
+    if (!code)
+      return this.fail({
+        message: `You should provide ${this._accessTokenField}`,
+      });
 
-    this._loadUserProfile(accessToken, (error, profile) => {
-      if (error) return this.error(error);
+    this._oauth2.getOAuthAccessToken.call(
+      this._oauth2,
+      code,
+      null,
+      function (error, accessToken, refreshToken, params) {
+        if (error) return self.error(error);
+        if (!accessToken) {
+          return self.fail({
+            statusCode: 400,
+            data: JSON.stringify(params),
+          });
+        }
+        self._loadUserProfile(accessToken, (error, profile) => {
+          if (error) return self.error(error);
 
-      const verified = (error, user, info) => {
-        if (error) return this.error(error);
-        if (!user) return this.fail(info);
+          const verified = (error, user, info) => {
+            if (error) return self.error(error);
+            if (!user) return self.fail(info);
 
-        return this.success(user, info);
-      };
+            return self.success(user, info);
+          };
 
-      if (this._passReqToCallback) {
-        this._verify(req, accessToken, refreshToken, profile, verified);
-      } else {
-        this._verify(accessToken, refreshToken, profile, verified);
+          if (self._passReqToCallback) {
+            self._verify(req, accessToken, refreshToken, profile, verified);
+          } else {
+            self._verify(accessToken, refreshToken, profile, verified);
+          }
+        });
       }
-    });
+    );
   }
 
   /**
@@ -85,9 +110,13 @@ module.exports = class GitHubTokenStrategy extends OAuth2Strategy {
       if (error) {
         try {
           let errorJSON = JSON.parse(error.data);
-          return done(new InternalOAuthError(errorJSON.message, error.statusCode));
+          return done(
+            new InternalOAuthError(errorJSON.message, error.statusCode)
+          );
         } catch (_) {
-          return done(new InternalOAuthError('Failed to fetch user profile', error));
+          return done(
+            new InternalOAuthError("Failed to fetch user profile", error)
+          );
         }
       }
 
@@ -96,54 +125,65 @@ module.exports = class GitHubTokenStrategy extends OAuth2Strategy {
       try {
         let json = JSON.parse(body);
         profile = {
-          provider: 'github',
+          provider: "github",
           id: json.id,
           username: json.login,
-          displayName: json.name || '',
+          displayName: json.name || "",
           name: {
-            familyName: json.name ? json.name.split(' ', 2)[1] || '' : '',
-            givenName: json.name ? json.name.split(' ', 2)[0] || '' : ''
+            familyName: json.name ? json.name.split(' ').slice(-1).join(' ') || "" : "",
+            givenName: json.name ? json.name.split(' ').slice(0, -1).join(' ') || "" : "",
           },
           emails: json.email && [{ value: json.email }],
           photos: [],
           _raw: body,
-          _json: json
+          _json: json,
         };
       } catch (e) {
         return done(e);
       }
 
-      if (this._scope && this._scope.indexOf('user:email') !== -1) {
-        this._oauth2.get(this._profileURL + '/emails', accessToken, function (error, body, res) {
-          if (error) return done(null, profile);
+      if (this._scope && this._scope.indexOf("user:email") !== -1) {
+        this._oauth2.get(
+          this._profileURL + "/emails",
+          accessToken,
+          function (error, body, res) {
+            if (error) return done(null, profile);
 
-          var json;
-          try {
-            json = JSON.parse(body);
-          } catch (_) {
-            return done(null, profile);
-          }
-
-          if (!json.length) return done(null, profile);
-
-          profile.emails = profile.emails || [];
-          var publicEmail = profile.emails[0];
-
-          (json).forEach(function (email) {
-            if (publicEmail && publicEmail.value == email.email) {
-              profile.emails[0].primary = email.primary;
-              profile.emails[0].verified = email.verified;
-            } else {
-              profile.emails.push({ value: email.email, primary: email.primary, verified: email.verified })
+            var json;
+            try {
+              json = JSON.parse(body);
+            } catch (_) {
+              return done(null, profile);
             }
-          });
 
-          done(null, profile);
-        });
-      }
-      else {
+            if (!json.length) return done(null, profile);
+
+            profile.emails = profile.emails || [];
+            var publicEmail = profile.emails[0];
+
+            json.forEach(function (email) {
+              if (publicEmail && publicEmail.value == email.email) {
+                profile.emails[0].primary = email.primary;
+                profile.emails[0].verified = email.verified;
+              } else {
+                profile.emails.push({
+                  value: email.email,
+                  primary: email.primary,
+                  verified: email.verified,
+                });
+              }
+            });
+
+            done(null, profile);
+          }
+        );
+      } else {
         done(null, profile);
       }
     });
   }
 }
+
+module.exports = {
+  Strategy: GitHubTokenStrategy,
+};
